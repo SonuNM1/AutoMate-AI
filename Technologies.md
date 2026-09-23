@@ -6,3 +6,4 @@
 
 ### Drizzle ORM - Neon 
 
+- npx drizzle-kit studio 

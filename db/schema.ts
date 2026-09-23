@@ -1,13 +1,11 @@
-import { boolean, uuid } from "drizzle-orm/gel-core";
-import { varchar } from "drizzle-orm/mysql-core";
-import {integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, integer, jsonb, pgTable, serial, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name"),
   email: text("email").notNull().unique(),
-  agentCredits: integer('agentCredits').default(3),
-  usageCredits: integer('usageCredits').default(100),
+  agentCredits: integer("agentCredits").default(3),
+  usageCredits: integer("usageCredits").default(100),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -28,10 +26,28 @@ export const tools = pgTable("tools", {
 
   requiresAuth: boolean("requires_auth").default(false),
 
-  authType: varchar("auth_type", {length: 50})
+  authType: varchar("auth_type", { length: 50 }),
+
+  authProvider: varchar("auth_provider", { length: 100 }),
+
+  capabilities: jsonb("capabilities").$type<string[]>().default([]),
+  useCases: jsonb("use_cases").$type<string[]>().default([]),
+
+  permissions: jsonb("permissions").$type<string[]>().default([]),
+
+  approvalRules: jsonb("approval_rules")
+    .$type<Record<string, boolean>>()
+    .default({}),
+
+  config: jsonb("config").$type<Record<string, any>>(),
+
+  riskLevel: varchar("risk_level", { length: 30 }).default("low"),
+
+  canRead: boolean("can_read").default(false),
+  canWrite: boolean("can_write").default(false),
+  canDelete: boolean("can_delete").default(false),
+  canExecute: boolean("can_execute").default(true),
 });
-
-
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
