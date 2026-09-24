@@ -12,36 +12,41 @@ export const users = pgTable("users", {
 export const tools = pgTable("tools", {
   id: uuid("id").defaultRandom().primaryKey(),
 
-  slug: varchar("slug", { length: 100 }).notNull().unique(),
-  name: varchar("name", { length: 150 }).notNull(),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
   description: text("description"),
 
-  category: varchar("category", { length: 100 }).notNull(),
-  type: varchar("type", { length: 50 }).notNull(),
-  provider: varchar("provider", { length: 100 }).notNull(),
+  category: text("category").notNull(),
+  type: text("type").notNull(),
+  provider: text("provider").notNull(),
+  icon: text("icon"),
 
-  icon: varchar("icon", { length: 100 }),
-
-  status: varchar("status", { length: 50 }).default("active"),
+  status: text("status").default("active"),
 
   requiresAuth: boolean("requires_auth").default(false),
+  authType: text("auth_type"),
+  authProvider: text("auth_provider"),
 
-  authType: varchar("auth_type", { length: 50 }),
+  capabilities: jsonb("capabilities")
+    .$type<string[]>()
+    .default([]),
 
-  authProvider: varchar("auth_provider", { length: 100 }),
+  useCases: jsonb("use_cases")
+    .$type<string[]>()
+    .default([]),
 
-  capabilities: jsonb("capabilities").$type<string[]>().default([]),
-  useCases: jsonb("use_cases").$type<string[]>().default([]),
-
-  permissions: jsonb("permissions").$type<string[]>().default([]),
+  permissions: jsonb("permissions")
+    .$type<string[]>()
+    .default([]),
 
   approvalRules: jsonb("approval_rules")
     .$type<Record<string, boolean>>()
     .default({}),
 
-  config: jsonb("config").$type<Record<string, any>>(),
+  config: jsonb("config")
+    .$type<Record<string, any>>(),
 
-  riskLevel: varchar("risk_level", { length: 30 }).default("low"),
+  riskLevel: text("risk_level").default("low"),
 
   canRead: boolean("can_read").default(false),
   canWrite: boolean("can_write").default(false),
