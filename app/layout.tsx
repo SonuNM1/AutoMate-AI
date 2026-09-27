@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import {Figtree} from "next/font/google"
 import axios from "axios" ; 
 import Provider from './provider';
+import { Toaster } from '@/components/ui/sonner';
 
 export const metadata: Metadata = {
   title: "Next.js Premium Startup Boilerplate",
@@ -11,7 +12,6 @@ export const metadata: Metadata = {
 };
 
 const figTree = Figtree({subsets: ['latin']}) ;
-
 
 export default function RootLayout({
   children,
@@ -26,6 +26,8 @@ export default function RootLayout({
           <Provider>
             {children}
           </Provider>
+
+          <Toaster/>
         </body>
       </html>
     </ClerkProvider>

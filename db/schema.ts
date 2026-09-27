@@ -54,5 +54,21 @@ export const tools = pgTable("tools", {
   canExecute: boolean("can_execute").default(true),
 });
 
+export const AgentConfig = pgTable("agentConfig", {
+  id: serial("id").primaryKey(), 
+  userEmail: text('email').references(() => users.email), 
+  agentId: varchar('agentId').notNull().unique(), 
+  name: varchar('name'), 
+  agentImage: varchar('agentImage'), 
+  description: text('description'),
+  instructions: text('instructions'), 
+  objective: text('objective'), 
+  tools: jsonb('tools'), 
+  skills: jsonb('skills'),
+   schedule: jsonb('schedule'), 
+   outputFormat: text('outputFormat'), 
+   createdAt: timestamp("created_at").defaultNow().notNull()
+})
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;

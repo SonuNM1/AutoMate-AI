@@ -13,7 +13,9 @@ import {
 } from "lucide-react";
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import axios from "axios";
+import AIAgentQuestions from "./AIAgentQuestions";
 
 const quickSuggestions = [
   {
@@ -83,8 +85,17 @@ const templates = [
 
 type AgentConfigResp = {
   status: "needs_clarification" | "ready";
-  clarificationQuestions: any;
+  clarificationQuestions: ClarificationQuestion[];
   config: any;
+};
+
+export type ClarificationQuestion = {
+  id: string;
+  question: string;
+  type: "single_select" | "multi_select" | "text" | "number" | "date" | "time";
+  options: string[];
+  allowCustom: boolean;
+  customPlaceholder: string;
 };
 
 const CreateAgent = () => {
@@ -96,16 +107,48 @@ const CreateAgent = () => {
   const [loading, setLoading] = useState(false);
 
   const OnSubmit = async () => {
-    setLoading(true);
+    try {
+      setLoading(true);
+
+      const result = await axios.post("/api/agent/configure", {
+        prompt,
+      });
+
+      console.log(result.data);
+
+      setConfigResult(result.data);
+
+      toast.success("Agent configuration generated successfully.");
+    } catch (error: unknown) {
+      console.error("Agent configuration error:", error);
+
+      let message = "Something went wrong while generating the agent.";
+
+      if (axios.isAxiosError(error)) {
+        message = error.response?.data?.error || message;
+      }
+
+      toast.error("Unable to generate agent", {
+        description: message,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onComplete = async (ans: any) => {
+    console.log("oncomplete", ans);
+    setConfigResult(null);
+
+    const updatedPrompt = prompt + "/n" + JSON.stringify(ans);
 
     const result = await axios.post("/api/agent/configure", {
-      prompt: prompt,
+      updatedPrompt,
     });
 
     console.log(result.data);
 
     setConfigResult(result.data);
-    setLoading(false);
   };
 
   return (
@@ -169,37 +212,45 @@ const CreateAgent = () => {
           <h2>Generating Agent Config...</h2>
         </div>
       ) : (
-         !configResult && <div className="mt-10">
-          <h2 className="flex text-xl justify-between items-center font-semibold">
-            Get Started{" "}
-            <span className="text-sm font-medium">View All</span>{" "}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
-            {templates.map((template, index) => (
-              <div
-                className={`border rounded-2xl p-5 hover:cursor-pointer hover:shadow-lg ${template.border} ${template.glow}`}
-              >
-                <template.icon
-                  className={`h-12 w-12 p-2 ${template.iconBg} ${template.iconColor} rounded-xl`}
-                />
-                <div className="mt-6">
-                  <h2 className="font-semibold text-foreground">
-                    {template.title}
-                  </h2>
-                  <p className="text-sm mt-2 leading-5 text-muted-foreground">
-                    {template.description}
-                  </p>
+        !configResult && (
+          <div className="mt-10">
+            <h2 className="flex text-xl justify-between items-center font-semibold">
+              Get Started{" "}
+              <span className="text-sm font-medium">View All</span>{" "}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+              {templates.map((template, index) => (
+                <div
+                  className={`border rounded-2xl p-5 hover:cursor-pointer hover:shadow-lg ${template.border} ${template.glow}`}
+                >
+                  <template.icon
+                    className={`h-12 w-12 p-2 ${template.iconBg} ${template.iconColor} rounded-xl`}
+                  />
+                  <div className="mt-6">
+                    <h2 className="font-semibold text-foreground">
+                      {template.title}
+                    </h2>
+                    <p className="text-sm mt-2 leading-5 text-muted-foreground">
+                      {template.description}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )
       )}
-      {configResult && 
+      {configResult && (
         <div className="p-5 border rounded-2xl">
+          {configResult.status == "needs_clarification" && (
+            <AIAgentQuestions
+              questionList={configResult.clarificationQuestions}
+              onComplete={(resp: any) => onComplete(resp)}
+            />
+          )}
           <p>{JSON.stringify(configResult)}</p>
         </div>
-      }
+      )}
     </div>
   );
 };

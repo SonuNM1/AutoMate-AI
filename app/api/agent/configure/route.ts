@@ -1,37 +1,98 @@
 import { NextRequest, NextResponse } from "next/server";
-import {GoogleGenAI, ThinkingLevel} from "@google/genai"
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { AgentConfigSystemPrompt } from "@/data/Prompt";
 import { AgentConfigRespSchema } from "@/data/ResponseSchema";
+import { AgentConfig, db, tools } from "@/db";
+import { currentUser } from "@clerk/nextjs/server";
 
 export async function POST(req: NextRequest) {
-    const {prompt} = await req.json() ; 
+  
+  const { prompt } = await req.json();
+  const user = await currentUser() ; 
 
-    if(!prompt.trim()) {
-        return NextResponse.json({
-            error: "Prompt is required"
-        }, {
-            status: 400
-        })
-    } 
+  if (!prompt?.trim()) {
+    return NextResponse.json(
+      {
+        error: "Prompt is required",
+      },
+      {
+        status: 400,
+      },
+    );
+  }
 
-    const apiKey = process.env.GOOGLE_CLOUD_GEMINI_API_KEY ; 
+  const apiKey = process.env.GOOGLE_CLOUD_GEMINI_API_KEY;
 
-    try {
-        const ai = new GoogleGenAI({apiKey}) ; 
+  if (!apiKey) {
+    return NextResponse.json(
+      {
+        error: "Gemini API key is not configured.",
+      },
+      {
+        status: 500,
+      },
+    );
+  }
 
-        const response = await ai.models.generateContent({
-            model: 'gemini-3.7-flash', 
-            contents: AgentConfigSystemPrompt.replace('{USER_PROMPT}', prompt) ,
-            config: {
-                thinkingConfig: {thinkingLevel: ThinkingLevel.MEDIUM}, 
-                responseMimeType: "application/json", 
-                responseSchema: AgentConfigRespSchema
-            }
-        })
+  const ai = new GoogleGenAI({ apiKey });
 
-        return NextResponse.json(JSON.parse(response.text ?? '{}')) ; 
-    } catch (error) {
-        console.error("Error: ", error) ; 
-        return NextResponse.json({error: error}, {status:500})
+  try {
+    const aiTools = await db
+      .select({
+        slug: tools.slug,
+      })
+      .from(tools);
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.8-flash",
+      contents: AgentConfigSystemPrompt.replace(
+        "{USER_PROMPT}",
+        prompt,
+      ).replace('AVAILABLE_TOOLS', aiTools.toString()),
+      config: {
+        thinkingConfig: {
+          thinkingLevel: ThinkingLevel.MEDIUM,
+        },
+        responseMimeType: "application/json",
+        responseSchema: AgentConfigRespSchema,
+      },
+    });
+
+    // to save final agent config 
+
+    const aiOutput = JSON.parse(response.text ?? "{}") ; 
+
+    if(aiOutput.status == 'ready') {
+
+      const agentId = crypto.randomUUID() ; 
+
+      const dbResult = await db.insert(AgentConfig).values({
+        ...aiOutput.config,
+        agentImage: 'https://api.dicebear.com/10.x/clay/svg?tags=animation&seed='+agentId,
+        agentId: agentId,
+        userEmail: user?.primaryEmailAddress?.emailAddress
+      }).returning() ; 
+
+      return NextResponse.json(dbResult) ; 
     }
+
+    return NextResponse.json(JSON.parse(response.text ?? "{}"));
+  } catch (error: unknown) {
+    console.error(`GEMINI ERROR):`, error);
+
+    const geminiError = error as {
+      status?: number;
+      message?: string;
+    };
+
+    return NextResponse.json(
+      {
+        error:
+          geminiError.message || "Unable to generate the agent configuration.",
+      },
+      {
+        status: 500,
+      },
+    );
+  }
 }
