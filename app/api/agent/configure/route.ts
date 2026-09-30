@@ -4,6 +4,7 @@ import { AgentConfigSystemPrompt } from "@/data/Prompt";
 import { AgentConfigRespSchema } from "@/data/ResponseSchema";
 import { AgentConfig, db, tools } from "@/db";
 import { currentUser } from "@clerk/nextjs/server";
+import { eq } from "drizzle-orm";
 
 export async function POST(req: NextRequest) {
   
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
         userEmail: user?.primaryEmailAddress?.emailAddress
       }).returning() ; 
 
-      return NextResponse.json(dbResult) ; 
+      return NextResponse.json({...dbResult[0], status_: 'ready'}) ; 
     }
 
     return NextResponse.json(JSON.parse(response.text ?? "{}"));
@@ -95,4 +96,20 @@ export async function POST(req: NextRequest) {
       },
     );
   }
+}
+
+export async function PUT(req: NextRequest) {
+  const agentConfig = await req.json() ; 
+
+  console.log(agentConfig) ; 
+
+  const result = await db.update(AgentConfig).set({
+    ...agentConfig 
+  })
+  .where(eq(AgentConfig.agentId, agentConfig?.agentId))
+  .returning() ; 
+
+  console.log(result[0]) ; 
+
+  return NextResponse.json(result[0]) ; 
 }

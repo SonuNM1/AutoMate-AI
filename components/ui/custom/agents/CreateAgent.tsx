@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import axios from "axios";
 import AIAgentQuestions from "./AIAgentQuestions";
+import NewAgentCard from "./NewAgentCard";
 
 const quickSuggestions = [
   {
@@ -98,12 +99,37 @@ export type ClarificationQuestion = {
   customPlaceholder: string;
 };
 
+export type CreatedAgentType = {
+  id: number;
+  userEmail: string;
+  agentId: string;
+  name: string;
+  agentImage: string;
+  description: string;
+  instructions: string;
+  objective: string;
+  tools: any;
+  skills: string[];
+  schedule: AgentSchedule;
+  outputFormat: string;
+  status: string;
+  createdAt: string;
+};
+
+export type AgentSchedule = {
+  type: "once" | "recurring" | "manual";
+  frequency?: "hourly" | "daily" | "weekly" | "monthly";
+  time?: string;
+};
+
 const CreateAgent = () => {
   const [prompt, setPrompt] = useState("");
   const [configResult, setConfigResult] = useState<AgentConfigResp | null>(
     null,
   );
-
+  const [createdAgent, setCreatedAgent] = useState<CreatedAgentType | null>(
+    null,
+  );
   const [loading, setLoading] = useState(false);
 
   const OnSubmit = async () => {
@@ -118,7 +144,12 @@ const CreateAgent = () => {
 
       setConfigResult(result.data);
 
+      if (result?.data?.status_ == "ready") {
+        setCreatedAgent(result.data);
+      }
+
       toast.success("Agent configuration generated successfully.");
+      setLoading(false);
     } catch (error: unknown) {
       console.error("Agent configuration error:", error);
 
@@ -149,6 +180,8 @@ const CreateAgent = () => {
     console.log(result.data);
 
     setConfigResult(result.data);
+    setCreatedAgent(result.data);
+    setLoading(false);
   };
 
   return (
@@ -240,17 +273,18 @@ const CreateAgent = () => {
           </div>
         )
       )}
-      {configResult && (
+      {configResult && configResult.status === "needs_clarification" && (
         <div className="p-5 border rounded-2xl">
-          {configResult.status == "needs_clarification" && (
-            <AIAgentQuestions
-              questionList={configResult.clarificationQuestions}
-              onComplete={(resp: any) => onComplete(resp)}
-            />
-          )}
-          <p>{JSON.stringify(configResult)}</p>
+          <AIAgentQuestions
+            questionList={configResult.clarificationQuestions}
+            onComplete={(resp: any) => onComplete(resp)}
+          />
+
+          {/* <p>{JSON.stringify(configResult)}</p> */}
         </div>
       )}
+
+      {createdAgent && <NewAgentCard createdAgent={createdAgent} setUpdatedAgent={(value: CreatedAgentType) => setCreatedAgent(value)}/>}
     </div>
   );
 };

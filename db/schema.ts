@@ -1,4 +1,14 @@
-import { boolean, integer, jsonb, pgTable, serial, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  integer,
+  jsonb,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+  uuid,
+  varchar,
+} from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -27,24 +37,17 @@ export const tools = pgTable("tools", {
   authType: text("auth_type"),
   authProvider: text("auth_provider"),
 
-  capabilities: jsonb("capabilities")
-    .$type<string[]>()
-    .default([]),
+  capabilities: jsonb("capabilities").$type<string[]>().default([]),
 
-  useCases: jsonb("use_cases")
-    .$type<string[]>()
-    .default([]),
+  useCases: jsonb("use_cases").$type<string[]>().default([]),
 
-  permissions: jsonb("permissions")
-    .$type<string[]>()
-    .default([]),
+  permissions: jsonb("permissions").$type<string[]>().default([]),
 
   approvalRules: jsonb("approval_rules")
     .$type<Record<string, boolean>>()
     .default({}),
 
-  config: jsonb("config")
-    .$type<Record<string, any>>(),
+  config: jsonb("config").$type<Record<string, any>>(),
 
   riskLevel: text("risk_level").default("low"),
 
@@ -55,20 +58,21 @@ export const tools = pgTable("tools", {
 });
 
 export const AgentConfig = pgTable("agentConfig", {
-  id: serial("id").primaryKey(), 
-  userEmail: text('email').references(() => users.email), 
-  agentId: varchar('agentId').notNull().unique(), 
-  name: varchar('name'), 
-  agentImage: varchar('agentImage'), 
-  description: text('description'),
-  instructions: text('instructions'), 
-  objective: text('objective'), 
-  tools: jsonb('tools'), 
-  skills: jsonb('skills'),
-   schedule: jsonb('schedule'), 
-   outputFormat: text('outputFormat'), 
-   createdAt: timestamp("created_at").defaultNow().notNull()
-})
+  id: serial("id").primaryKey(),
+  userEmail: text("email").references(() => users.email),
+  agentId: varchar("agentId").notNull().unique(),
+  name: varchar("name"),
+  agentImage: varchar("agentImage"),
+  description: text("description"),
+  instructions: text("instructions"),
+  objective: text("objective"),
+  tools: jsonb("tools"),
+  skills: jsonb("skills"),
+  schedule: jsonb("schedule"),
+  outputFormat: text("outputFormat"),
+  status: varchar("status").default("active"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
