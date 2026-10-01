@@ -23,21 +23,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { tools } from "@/db";
 import { toast } from "sonner";
 import axios from "axios";
 
 // Props received by this component: the trigger element and the agent being edited
 
 type Props = {
-  children: any;
+  children?: any;
   agentConfig: CreatedAgentType | null;
-  setUpdatedAgent: any 
+  setUpdatedAgent: any; 
+  openSheet_?: boolean; 
+  closeSheet?: any 
 };
+
+const frequencyOptions = [
+  "hourly", 
+  "daily", 
+  "weekly", 
+  "monthly"
+]
 
 // Component responsible for displaying and editing an existing agent
 
-const AgentEditSheet = ({ children, agentConfig, setUpdatedAgent}: Props) => {
+function AgentEditSheet({ children, agentConfig, setUpdatedAgent, openSheet_ = false, closeSheet}: Props) => {
 
   const [draftAgent, setDraftAgent] = useState<CreatedAgentType | null>(
     agentConfig,
@@ -45,7 +53,7 @@ const AgentEditSheet = ({ children, agentConfig, setUpdatedAgent}: Props) => {
   const [skillInput, setSkillInput] = useState("");
   const [tools, setTools] = useState<EditableTool[]>([]) ; 
 
-  const [openSheet, setOpenSheet] = useState(false) ; 
+  const [openSheet, setOpenSheet] = useState(openSheet_) ; 
 
   //   generate a new random agent image and update the draft
 
@@ -120,19 +128,22 @@ const AgentEditSheet = ({ children, agentConfig, setUpdatedAgent}: Props) => {
         ...draftAgent 
     })
 
-    console.log(result.data) ; 
+    console.log(result.data) ;
+    
+    if(result.data?.error) {
+        toast.error(result.data?.error) ;
+        return ; 
+    }
 
     setUpdatedAgent(draftAgent);
-    toast.add({
-        type: "success", 
-        title: "Agent updated!",
-    })
+    toast.success("Agent updated!") ; 
 
     setOpenSheet(false) ; 
+    closeSheet(false) ; 
   };
 
   return (
-    <Sheet open={openSheet} onOpenChange={setOpenSheet}>
+  <Sheet open={openSheet} onOpenChange={(v: boolean)=> setOpenSheet(v); closeSheet(v)}>
       <SheetTrigger>{children}</SheetTrigger>
       <SheetContent>
 

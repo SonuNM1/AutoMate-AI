@@ -4,12 +4,11 @@ import { AgentConfigSystemPrompt } from "@/data/Prompt";
 import { AgentConfigRespSchema } from "@/data/ResponseSchema";
 import { AgentConfig, db, tools } from "@/db";
 import { currentUser } from "@clerk/nextjs/server";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 export async function POST(req: NextRequest) {
-  
   const { prompt } = await req.json();
-  const user = await currentUser() ; 
+  const user = await currentUser();
 
   if (!prompt?.trim()) {
     return NextResponse.json(
@@ -49,7 +48,7 @@ export async function POST(req: NextRequest) {
       contents: AgentConfigSystemPrompt.replace(
         "{USER_PROMPT}",
         prompt,
-      ).replace('AVAILABLE_TOOLS', aiTools.toString()),
+      ).replace("AVAILABLE_TOOLS", aiTools.toString()),
       config: {
         thinkingConfig: {
           thinkingLevel: ThinkingLevel.MEDIUM,
@@ -59,22 +58,26 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // to save final agent config 
+    // to save final agent config
 
-    const aiOutput = JSON.parse(response.text ?? "{}") ; 
+    const aiOutput = JSON.parse(response.text ?? "{}");
 
-    if(aiOutput.status == 'ready') {
+    if (aiOutput.status == "ready") {
+      const agentId = crypto.randomUUID();
 
-      const agentId = crypto.randomUUID() ; 
+      const dbResult = await db
+        .insert(AgentConfig)
+        .values({
+          ...aiOutput.config,
+          agentImage:
+            "https://api.dicebear.com/10.x/clay/svg?tags=animation&seed=" +
+            agentId,
+          agentId: agentId,
+          userEmail: user?.primaryEmailAddress?.emailAddress,
+        })
+        .returning();
 
-      const dbResult = await db.insert(AgentConfig).values({
-        ...aiOutput.config,
-        agentImage: 'https://api.dicebear.com/10.x/clay/svg?tags=animation&seed='+agentId,
-        agentId: agentId,
-        userEmail: user?.primaryEmailAddress?.emailAddress
-      }).returning() ; 
-
-      return NextResponse.json({...dbResult[0], status_: 'ready'}) ; 
+      return NextResponse.json({ ...dbResult[0], status_: "ready" });
     }
 
     return NextResponse.json(JSON.parse(response.text ?? "{}"));
@@ -99,17 +102,44 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const agentConfig = await req.json() ; 
+  const agentConfig = await req.json();
 
-  console.log(agentConfig) ; 
+  console.log(agentConfig);
 
-  const result = await db.update(AgentConfig).set({
-    ...agentConfig 
-  })
-  .where(eq(AgentConfig.agentId, agentConfig?.agentId))
-  .returning() ; 
+  try {
+    const result = await db
+      .update(AgentConfig)
+      .set({
+        ...agentConfig,
+        createdAt: new Date(),
+      })
+      .where(eq(AgentConfig.agentId, agentConfig?.agentId))
+      .returning();
 
-  console.log(result[0]) ; 
+    console.log(result[0]);
 
-  return NextResponse.json(result[0]) ; 
+    return NextResponse.json(result[0]);
+  } catch (error) {
+    return NextResponse.json({error: 'Internal Server Error'}, {status: 500})
+  }
+}
+
+export async function GET(req: NextRequest) {
+
+  const user = await currentUser() ; 
+
+  if(!user) {
+    return NextResponse.json({
+      error: "Unauthorized user", 
+    }, {
+      status: 400 
+    })
+  }
+
+  const result = await db.select().from(AgentConfig)
+  .where(eq(AgentConfig.userEmail, user?.primaryEmailAddress?.emailAddress ?? '')) 
+  .orderBy(desc(AgentConfig?.createdAt))
+
+  return NextResponse.json(result) ; 
+
 }
