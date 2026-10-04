@@ -13,7 +13,6 @@ import {
 } from "../../dropdown-menu";
 import { Button } from "@/components/ui/button";
 import {
-  Calendar,
   CalendarClockIcon,
   Ellipsis,
   Pause,
@@ -22,14 +21,14 @@ import {
   PlayIcon,
   Trash,
 } from "lucide-react";
-import { Separator } from "react-resizable-panels";
+import { Separator } from "@/components/ui/separator";
 import AgentEditSheet from "./AgentEditSheet";
 
 const MyAgents = () => {
-
   const [myAgents, setMyAgents] = useState<CreatedAgentType[] | null>();
   const [openEditAgentSheet, setOpenEditAgentSheet] = useState(false);
-  const [selectedEditAgent, setSelectedEditAgent] = useState<CreatedAgentType | null>(null)
+  const [selectedEditAgent, setSelectedEditAgent] =
+    useState<CreatedAgentType | null>(null);
 
   useEffect(() => {
     AllUsersAgent();
@@ -50,8 +49,8 @@ const MyAgents = () => {
       </p>
 
       <div className="grid grid-cols-2 2xl:grid-cols-3 gap-5 mt-5">
-        {myAgents?.map((agent, index) => (
-          <div className="p-3 border rounded-2xl">
+        {myAgents?.map((agent) => (
+          <div key={agent.id} className="p-3 border rounded-2xl">
             <div className="flex justify-between items-center">
               <img
                 src={agent?.agentImage}
@@ -78,8 +77,10 @@ const MyAgents = () => {
                         <Pause /> Pause Agent
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={() => setOpenEditAgentSheet(true)}; 
-                        setSelectedEditAgent(agent)
+                        onClick={() => {
+                          setSelectedEditAgent(agent);
+                          setOpenEditAgentSheet(true);
+                        }}
                       >
                         <Pencil />
                         Edit Agent
@@ -108,9 +109,16 @@ const MyAgents = () => {
                 <div className="flex gap-1 items-center mt-4">
                   <CalendarClockIcon className="h-4 w-4 text-purple-700" />
                   <p className="text-xs text-muted-foreground">
-                    {agent?.schedule?.frequency}
+                    {agent.schedule.type === "manual" && "Manual"}
+
+                    {agent.schedule.type === "once" && (
+                      <>Once at {agent.schedule.time}</>
+                    )}
+
                     {agent.schedule.type === "recurring" && (
-                      <span>&nbsp; at {agent?.schedule?.time}</span>
+                      <>
+                        {agent.schedule.frequency} at {agent.schedule.time}
+                      </>
                     )}
                   </p>
                 </div>
@@ -123,12 +131,14 @@ const MyAgents = () => {
           </div>
         ))}
       </div>
-      { openEditAgentSheet && <AgentEditSheet
-                agentConfig={selectedEditAgent}
-                setUpdatedAgent={() => AllUsersAgent()}
-                openSheet_={openEditAgentSheet}
-                closeSheet={(v:boolean) => setOpenEditAgentSheet(v)}
-              />}
+      {openEditAgentSheet && (
+        <AgentEditSheet
+          agentConfig={selectedEditAgent}
+          setUpdatedAgent={() => AllUsersAgent()}
+          openSheet_={openEditAgentSheet}
+          closeSheet={(v: boolean) => setOpenEditAgentSheet(v)}
+        />
+      )}
     </div>
   );
 };

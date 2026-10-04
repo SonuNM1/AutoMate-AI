@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AgentSchedule, CreatedAgentType } from "./CreateAgent";
 import { Plus, Shuffle, X } from "lucide-react";
-import { Input } from "@base-ui/react";
+import { Input } from "@/components/ui/input";
 import { Label } from "../../label";
 import { Textarea } from "../../textarea";
 import {
@@ -31,29 +31,41 @@ import axios from "axios";
 type Props = {
   children?: any;
   agentConfig: CreatedAgentType | null;
-  setUpdatedAgent: any; 
-  openSheet_?: boolean; 
-  closeSheet?: any 
+  setUpdatedAgent: any;
+  openSheet_?: boolean;
+  closeSheet?: any;
 };
 
-const frequencyOptions = [
-  "hourly", 
-  "daily", 
-  "weekly", 
-  "monthly"
-]
+type EditableTool = {
+  name: string, 
+  connected: boolean, 
+  slug: string, 
+  logo: string  
+}
 
 // Component responsible for displaying and editing an existing agent
 
-function AgentEditSheet({ children, agentConfig, setUpdatedAgent, openSheet_ = false, closeSheet}: Props) => {
-
+const AgentEditSheet = ({
+  children,
+  agentConfig,
+  setUpdatedAgent,
+  openSheet_ = false,
+  closeSheet,
+}: Props) => {
   const [draftAgent, setDraftAgent] = useState<CreatedAgentType | null>(
     agentConfig,
   );
+
+  useEffect(() => {
+    setDraftAgent(agentConfig);
+    agentConfig && getTools() ; 
+  }, [agentConfig]);
+
   const [skillInput, setSkillInput] = useState("");
+
   const [tools, setTools] = useState<EditableTool[]>([]) ; 
 
-  const [openSheet, setOpenSheet] = useState(openSheet_) ; 
+  const [openSheet, setOpenSheet] = useState(openSheet_);
 
   //   generate a new random agent image and update the draft
 
@@ -104,6 +116,20 @@ function AgentEditSheet({ children, agentConfig, setUpdatedAgent, openSheet_ = f
     });
   };
 
+  // get tools 
+
+  const getTools = async () => {
+    const result = await axios.get("/api/agent/tools?agentId="+agentConfig?.agentId) ; 
+
+    console.log(result.data) ; 
+  }
+
+  const connectedToolCount = useMemo(() => {
+    return tools.filter((tool) => tool.connected).length
+  }, [tools])
+
+  const hasSchedule = draftAgent?.schedule?.type === "once" || draftAgent?.schedule?.type === "recurring" ; 
+
   // update a specific field inside the draft agent
 
   const updateDraft = (key: string, value: string) => {
@@ -113,48 +139,55 @@ function AgentEditSheet({ children, agentConfig, setUpdatedAgent, openSheet_ = f
     }));
   };
 
-  const connectedToolCount = useMemo(() => {
-    return tools.filter((tool) => tool.connected).length;
-  }, [tools]);
-
-  const hasSchedule =
-    draftAgent?.schedule?.type === "once" ||
-    draftAgent?.schedule?.type === "recurring";
-
-  const handleSubmit = async (event: any) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const result = await axios.put('/api/agent/configure', {
-        ...draftAgent 
-    })
+    try {
+      const result = await axios.put("/api/agent/configure", {
+        ...draftAgent,
+      });
 
-    console.log(result.data) ;
-    
-    if(result.data?.error) {
-        toast.error(result.data?.error) ;
-        return ; 
+      console.log(result.data);
+
+      if (result.data?.error) {
+        toast.error(result.data.error);
+        return;
+      }
+
+      setUpdatedAgent(result.data);
+
+      toast.success("Agent updated!");
+
+      setOpenSheet(false);
+      closeSheet?.(false);
+    } catch (error: any) {
+      console.error("Update agent error:", error);
+
+      toast.error(
+        error?.response?.data?.error ||
+          "Failed to update agent. Please try again.",
+      );
     }
-
-    setUpdatedAgent(draftAgent);
-    toast.success("Agent updated!") ; 
-
-    setOpenSheet(false) ; 
-    closeSheet(false) ; 
   };
 
   return (
-  <Sheet open={openSheet} onOpenChange={(v: boolean)=> setOpenSheet(v); closeSheet(v)}>
+    <Sheet
+      open={openSheet}
+      onOpenChange={(v: boolean) => {
+        setOpenSheet(v);
+        closeSheet?.(v);
+      }}
+    >
       <SheetTrigger>{children}</SheetTrigger>
+
       <SheetContent>
-
-        {/* form containing all editable agent fields */}
-
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <SheetHeader className="border-b py-4">
             <div className="flex items-center gap-2.5">
               <div>
-                <Image src={"/logo.svg"} alt="logo" width={40} height={40} />
+                <Image src="/logo.svg" alt="logo" width={40} height={40} />
               </div>
+
               <div>
                 <SheetTitle>Edit Agent</SheetTitle>
                 <SheetDescription>
@@ -164,48 +197,48 @@ function AgentEditSheet({ children, agentConfig, setUpdatedAgent, openSheet_ = f
             </div>
           </SheetHeader>
 
-          {/* scrollable area containing the editable agent fields */}
-
-          <ScrollArea className={"p-5"}>
-            <section className="flex gap-3 items-center border rounded-2xl bg-gray-50 p-3">
+          <ScrollArea className="p-5">
+            {/* Agent Image */}
+            <section className="flex items-center gap-3 rounded-2xl border bg-gray-50 p-3">
               <div>
                 <img
                   src={draftAgent?.agentImage}
                   alt={draftAgent?.name ?? ""}
                   width={88}
                   height={88}
-                  className="bg-slate-100 p-2 border rounded-2xl size-20"
+                  className="size-20 rounded-2xl border bg-slate-100 p-2"
                 />
               </div>
+
               <div className="space-y-2">
                 <p className="font-medium">Agent Image</p>
+
                 <p className="text-xs text-muted-foreground">
                   Shuffle to generate new look
                 </p>
-                <Button
-                  type="button"
-                  variant={"outline"}
-                  onClick={shuffleImage}
-                >
+
+                <Button type="button" variant="outline" onClick={shuffleImage}>
                   <Shuffle />
                   Shuffle Image
                 </Button>
               </div>
             </section>
-            <div className="space-y-2 gap mt-2">
+
+            {/* Agent Name */}
+            <div className="mt-2 space-y-2">
               <label>Agent Name</label>
+
               <Input
-                value={draftAgent?.name}
+                value={draftAgent?.name ?? ""}
                 onChange={(event) => updateDraft("name", event.target.value)}
                 placeholder="Give your agent name"
                 required
                 className="mt-1"
               />
             </div>
-            {/* prompt/instructions */}
 
-            <section className="space-y-4 mt-5">
-              {/* Agent objective */}
+            {/* Objective & Instructions */}
+            <section className="mt-5 space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="agent-objective">Objective</Label>
 
@@ -219,8 +252,6 @@ function AgentEditSheet({ children, agentConfig, setUpdatedAgent, openSheet_ = f
                   className="min-h-24 resize-y"
                 />
               </div>
-
-              {/* Agent instructions */}
 
               <div className="space-y-2">
                 <Label htmlFor="agent-instructions">Instructions</Label>
@@ -237,9 +268,8 @@ function AgentEditSheet({ children, agentConfig, setUpdatedAgent, openSheet_ = f
               </div>
             </section>
 
-            {/* Agent schedule configuration */}
-
-            <section className="space-y-4 rounded-xl border p-4 mt-5">
+            {/* Schedule */}
+            <section className="mt-5 space-y-4 rounded-xl border p-4">
               <div>
                 <h3 className="font-medium">Schedule</h3>
 
@@ -249,7 +279,7 @@ function AgentEditSheet({ children, agentConfig, setUpdatedAgent, openSheet_ = f
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                {/* Run type */}
+                {/* Run Type */}
                 <div className="space-y-2">
                   <Label>Run type</Label>
 
@@ -309,8 +339,7 @@ function AgentEditSheet({ children, agentConfig, setUpdatedAgent, openSheet_ = f
                   />
                 </div>
 
-                {/* Frequency - only show for recurring */}
-
+                {/* Frequency */}
                 {draftAgent?.schedule?.type === "recurring" && (
                   <div className="space-y-2 sm:col-span-2">
                     <Label>Frequency</Label>
@@ -351,8 +380,8 @@ function AgentEditSheet({ children, agentConfig, setUpdatedAgent, openSheet_ = f
               </div>
             </section>
 
-            {/* Agent skills */}
-            <section className="space-y-4 mt-5">
+            {/* Skills */}
+            <section className="mt-5 space-y-4">
               <div>
                 <h3 className="font-medium">Skills</h3>
 
@@ -361,7 +390,6 @@ function AgentEditSheet({ children, agentConfig, setUpdatedAgent, openSheet_ = f
                 </p>
               </div>
 
-              {/* Existing skills */}
               <div className="flex flex-wrap gap-2">
                 {draftAgent?.skills?.map((skill) => (
                   <div
@@ -380,8 +408,6 @@ function AgentEditSheet({ children, agentConfig, setUpdatedAgent, openSheet_ = f
                   </div>
                 ))}
               </div>
-
-              {/* Add new skill */}
 
               <div className="flex gap-2">
                 <Input
@@ -402,72 +428,82 @@ function AgentEditSheet({ children, agentConfig, setUpdatedAgent, openSheet_ = f
                   Add
                 </Button>
               </div>
+            </section>
 
-              {/* Connected tools */}
+            {/* Connected Tools */}
+            <section className="mt-5 space-y-4">
+              <div>
+                <h3 className="font-medium">Connected Tools</h3>
 
-              <section className="space-y-4 mt-5">
-                <div>
-                  <h3 className="font-medium">Connected Tools</h3>
+                <p className="text-xs text-muted-foreground">
+                  {Array.isArray(draftAgent?.tools)
+                    ? `${draftAgent.tools.length} connected`
+                    : "0 connected"}
+                </p>
+              </div>
 
-                  <p className="text-xs text-muted-foreground">
-                    {Array.isArray(draftAgent?.tools)
-                      ? `${draftAgent.tools.length} connected`
-                      : "0 connected"}
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  {["google_calendar", "notion"].map((tool) => (
-                    <div
-                      key={tool}
-                      className="flex items-center justify-between border rounded-xl p-3"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                          🔗
-                        </div>
-
-                        <div>
-                          <p className="font-medium">{tool}</p>
-
-                          <p className="text-xs text-muted-foreground">
-                            {draftAgent?.tools?.includes(tool)
-                              ? "Connected"
-                              : "Not connected"}
-                          </p>
-                        </div>
+              <div className="space-y-3">
+                {["google_calendar", "notion"].map((tool) => (
+                  <div
+                    key={tool}
+                    className="flex items-center justify-between rounded-xl border p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                        🔗
                       </div>
 
-                      <Button type="button" variant="outline" size="sm">
-                        Connect
-                      </Button>
+                      <div>
+                        <p className="font-medium">{tool}</p>
+
+                        <p className="text-xs text-muted-foreground">
+                          {draftAgent?.tools?.includes(tool)
+                            ? "Connected"
+                            : "Not connected"}
+                        </p>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </section>
 
-              {/* Agent output format */}
-              <section className="space-y-2 mt-5">
-                <Label htmlFor="output-format">Output Format</Label>
+                    <Button type="button" variant="outline" size="sm">
+                      Connect
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </section>
 
-                <Textarea
-                  id="output-format"
-                  value={draftAgent?.outputFormat ?? ""}
-                  onChange={(event) =>
-                    updateDraft("outputFormat", event.target.value)
-                  }
-                  placeholder="Describe how the agent should format its output..."
-                  className="min-h-28 resize-y"
-                />
-              </section>
+            {/* Output Format */}
+            <section className="mt-5 space-y-2">
+              <Label htmlFor="output-format">Output Format</Label>
+
+              <Textarea
+                id="output-format"
+                value={draftAgent?.outputFormat ?? ""}
+                onChange={(event) =>
+                  updateDraft("outputFormat", event.target.value)
+                }
+                placeholder="Describe how the agent should format its output..."
+                className="min-h-28 resize-y"
+              />
             </section>
           </ScrollArea>
+
           <SheetFooter className="border-t">
             <div className="flex justify-end gap-2.5">
-              <Button type="button" variant={"outline"}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setOpenSheet(false);
+                  closeSheet?.(false);
+                }}
+              >
                 Cancel
               </Button>
-              <Button className={"bg-purple-700"}>Save Changes</Button>
+
+              <Button type="submit" className="bg-purple-700">
+                Save Changes
+              </Button>
             </div>
           </SheetFooter>
         </form>
