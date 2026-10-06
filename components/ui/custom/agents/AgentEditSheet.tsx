@@ -12,7 +12,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AgentSchedule, CreatedAgentType } from "./CreateAgent";
-import { Plus, Shuffle, X } from "lucide-react";
+import { Plus, Shuffle, X, Link2, Unlink, Loader2Icon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "../../label";
 import { Textarea } from "../../textarea";
@@ -37,11 +37,11 @@ type Props = {
 };
 
 type EditableTool = {
-  name: string, 
-  connected: boolean, 
-  slug: string, 
-  logo: string  
-}
+  name: string;
+  connected: boolean;
+  slug: string;
+  logo: string;
+};
 
 // Component responsible for displaying and editing an existing agent
 
@@ -56,16 +56,15 @@ const AgentEditSheet = ({
     agentConfig,
   );
 
+  const [skillInput, setSkillInput] = useState("");
+  const [tools, setTools] = useState<EditableTool[]>([]);
+  const [openSheet, setOpenSheet] = useState(openSheet_);
+  const [loadingTools, setLoadingTools] = useState(false);
+
   useEffect(() => {
     setDraftAgent(agentConfig);
-    agentConfig && getTools() ; 
+    agentConfig && getTools();
   }, [agentConfig]);
-
-  const [skillInput, setSkillInput] = useState("");
-
-  const [tools, setTools] = useState<EditableTool[]>([]) ; 
-
-  const [openSheet, setOpenSheet] = useState(openSheet_);
 
   //   generate a new random agent image and update the draft
 
@@ -116,19 +115,42 @@ const AgentEditSheet = ({
     });
   };
 
-  // get tools 
+  // get tools
 
   const getTools = async () => {
-    const result = await axios.get("/api/agent/tools?agentId="+agentConfig?.agentId) ; 
+    setLoadingTools(true);
 
-    console.log(result.data) ; 
-  }
+    const result = await axios.get(
+      "/api/agent/tools?agentId=" + agentConfig?.agentId,
+    );
+
+    console.log(result.data);
+
+    setTools(result.data);
+    setLoadingTools(false);
+  };
+
+  const connectedTools = tools.filter((tool) => tool.connected == true);
 
   const connectedToolCount = useMemo(() => {
-    return tools.filter((tool) => tool.connected).length
-  }, [tools])
+    return tools.filter((tool) => tool.connected).length;
+  }, [tools]);
 
-  const hasSchedule = draftAgent?.schedule?.type === "once" || draftAgent?.schedule?.type === "recurring" ; 
+  const hasSchedule =
+    draftAgent?.schedule?.type === "once" ||
+    draftAgent?.schedule?.type === "recurring";
+
+  const connectTool = async (slug: string) => {
+    const result = await axios.post("/api/agent/tools/connect", {
+      agentId: agentConfig?.agentId ?? '', 
+      toolSlug: slug 
+    })
+
+    console.log(result.data) ; 
+
+    window.open(result?.data?.redirectUrl) ; 
+    
+  }
 
   // update a specific field inside the draft agent
 
@@ -431,41 +453,67 @@ const AgentEditSheet = ({
             </section>
 
             {/* Connected Tools */}
+
             <section className="mt-5 space-y-4">
               <div>
                 <h3 className="font-medium">Connected Tools</h3>
-
                 <p className="text-xs text-muted-foreground">
-                  {Array.isArray(draftAgent?.tools)
-                    ? `${draftAgent.tools.length} connected`
-                    : "0 connected"}
+                  {connectedTools.length} of {tools.length} connected
                 </p>
               </div>
 
               <div className="space-y-3">
-                {["google_calendar", "notion"].map((tool) => (
+                {loadingTools && (
+                  <div className="p-2 border rounded-2xl flex items-center">
+                    <Loader2Icon className="animate-spin" /> Loading tools...
+                  </div>
+                )}
+                {tools.map((tool, index) => (
                   <div
-                    key={tool}
-                    className="flex items-center justify-between rounded-xl border p-3"
+                    key={`${tool.name}-${index}`}
+                    className="flex items-center justify-between gap-3 rounded-xl border p-3"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                        🔗
+                      <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
+                        <img
+                          src={tool.logo}
+                          alt={tool.name}
+                          width={30}
+                          height={30}
+                          className="rounded-lg"
+                        />
                       </div>
 
                       <div>
-                        <p className="font-medium">{tool}</p>
+                        <p className="text-sm font-medium">{tool.name}</p>
 
-                        <p className="text-xs text-muted-foreground">
-                          {draftAgent?.tools?.includes(tool)
-                            ? "Connected"
-                            : "Not connected"}
+                        <p
+                          className={`text-xs ${tool.connected ? "text-emerald-600" : "text-muted-foreground"}`}
+                        >
+                          {tool.connected ? (
+                            <span className="text-green-500">Connected</span>
+                          ) : (
+                            <span className="text-red-500">Not connected</span>
+                          )}
                         </p>
                       </div>
                     </div>
 
-                    <Button type="button" variant="outline" size="sm">
-                      Connect
+                    {tool.logo && (
+                      <img
+                        src={tool.logo}
+                        alt={tool.name}
+                        className="size-8 object-contain"
+                      />
+                    )}
+
+                    <Button
+                      type="button"
+                      onClick={() => connectTool(tool.slug)}
+                      variant={tool.connected ? "outline" : "default"}
+                      size="sm"
+                    >
+                      {tool.connected ? "Disconnect" : "Connect"}
                     </Button>
                   </div>
                 ))}
